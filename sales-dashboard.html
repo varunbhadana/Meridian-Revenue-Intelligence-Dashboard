@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sales Intelligence Report — Meridian Goods</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+  :root{
+    --canvas:#F3F2F1;
+    --dot:#E4E3E1;
+    --tile:#FFFFFF;
+    --tile-border:#E3E2E0;
+    --ink:#201F1E;
+    --ink-dim:#605E5C;
+    --ink-faint:#8A8886;
+    --blue:#2568C8;
+    --amber:#E8A33D;
+    --teal:#02A398;
+    --coral:#EF6C55;
+    --violet:#8E7CC3;
+    --header-bg:#12213B;
+    --header-bg-2:#0D1A2E;
+    --sidebar:#FAFAF9;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(circle, var(--dot) 1px, transparent 1px) 0 0/22px 22px,
+      var(--canvas);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    font-variant-numeric:tabular-nums;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  /* ---------- Top chrome ---------- */
+  .topbar{
+    background:linear-gradient(180deg, var(--header-bg), var(--header-bg-2));
+    color:#EDEFF2;
+    padding:14px 26px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    flex-wrap:wrap;
+    gap:12px;
+  }
+  .crumb{display:flex;align-items:center;gap:10px;font-size:13px;color:#A9B7CC;}
+  .crumb b{color:#fff;font-weight:600;}
+  .crumb .sep{color:#4C5F7D;}
+  .live{display:flex;align-items:center;gap:12px;font-size:12.5px;color:#A9B7CC;}
+  .live-dot{width:7px;height:7px;border-radius:50%;background:var(--teal);box-shadow:0 0 0 3px rgba(2,163,152,0.25);animation:pulse 2s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.4;}}
+
+  .titlebar{
+    padding:20px 26px 14px;
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-end;
+    flex-wrap:wrap;
+    gap:14px;
+  }
+  .titlebar h1{
+    font-family:'Fraunces',serif;font-weight:500;font-size:24px;margin:0 0 4px;letter-spacing:-0.01em;
+  }
+  .titlebar p{margin:0;font-size:13px;color:var(--ink-dim);}
+  .reset-btn{
+    background:var(--tile);border:1px solid var(--tile-border);color:var(--ink-dim);
+    font-size:13px;font-family:'Inter',sans-serif;padding:9px 16px;border-radius:6px;
+    cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,0.05);transition:border-color .15s, color .15s;
+  }
+  .reset-btn:hover{border-color:var(--blue);color:var(--blue);}
+
+  /* ---------- Report body: sidebar + canvas ---------- */
+  .report-body{display:flex;align-items:flex-start;padding:0 26px 40px;gap:18px;}
+
+  .filter-pane{
+    width:220px;flex-shrink:0;
+    background:var(--sidebar);
+    border:1px solid var(--tile-border);
+    border-radius:6px;
+    padding:18px 16px;
+    position:sticky;top:16px;
+  }
+  .filter-pane h3{
+    font-size:11.5px;text-transform:none;color:var(--ink-faint);
+    margin:0 0 12px;font-weight:600;letter-spacing:0.02em;
+  }
+  .filter-group{margin-bottom:20px;}
+  .filter-group:last-of-type{margin-bottom:14px;}
+  .filter-group-label{font-size:12.5px;font-weight:600;color:var(--ink);margin-bottom:9px;display:block;}
+  .f-option{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:13px;color:var(--ink-dim);cursor:pointer;}
+  .f-option input{accent-color:var(--blue);width:15px;height:15px;cursor:pointer;}
+  .f-option:hover{color:var(--ink);}
+  .f-swatch{width:9px;height:9px;border-radius:2px;flex-shrink:0;}
+  .filter-reset{
+    width:100%;background:transparent;border:1px solid var(--tile-border);color:var(--ink-dim);
+    font-size:12.5px;padding:8px;border-radius:6px;cursor:pointer;
+  }
+  .filter-reset:hover{border-color:var(--blue);color:var(--blue);}
+
+  .canvas{flex:1;min-width:0;}
+
+  /* ---------- KPI strip ---------- */
+  .kpi-strip{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:12px;}
+  .kpi-tile{
+    background:var(--tile);border:1px solid var(--tile-border);border-radius:6px;
+    padding:14px 16px;box-shadow:0 1px 2px rgba(0,0,0,0.04);
+    border-left:3px solid var(--kpi-c, var(--blue));
+  }
+  .kpi-label{font-size:11.5px;color:var(--ink-faint);margin:0 0 8px;font-weight:500;}
+  .kpi-value{font-family:'Fraunces',serif;font-size:21px;font-weight:500;margin:0 0 5px;letter-spacing:-0.01em;}
+  .kpi-delta{font-size:11.5px;font-weight:600;}
+  .kpi-delta.up{color:var(--teal);}
+  .kpi-delta.down{color:var(--coral);}
+  .kpi-delta.flat{color:var(--ink-faint);font-weight:500;}
+
+  /* ---------- Grid canvas ---------- */
+  .tile-grid{display:grid;grid-template-columns:repeat(12,1fr);gap:12px;}
+  .tile{
+    background:var(--tile);border:1px solid var(--tile-border);border-radius:6px;
+    box-shadow:0 1px 3px rgba(0,0,0,0.06);padding:16px 18px 14px;
+    grid-column:span 12;
+  }
+  .col-8{grid-column:span 8;} .col-4{grid-column:span 4;}
+  .col-6{grid-column:span 6;} .col-12{grid-column:span 12;}
+  .tile-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:2px;}
+  .tile-title{font-size:13.5px;font-weight:600;margin:0;}
+  .tile-dots{color:var(--ink-faint);font-size:15px;letter-spacing:1px;line-height:1;}
+  .tile-note{font-size:11.5px;color:var(--ink-faint);margin:0 0 12px;}
+  .chart-box{position:relative;height:230px;}
+  .chart-box.short{height:190px;}
+  .chart-box.gauge{height:170px;}
+  .gauge-label{text-align:center;margin-top:-6px;}
+  .gauge-pct{font-family:'Fraunces',serif;font-size:26px;font-weight:500;}
+  .gauge-sub{font-size:11.5px;color:var(--ink-faint);}
+
+  .legend-row{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px;}
+  .legend-chip{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--ink-dim);}
+  .dot-sw{width:8px;height:8px;border-radius:2px;flex-shrink:0;}
+
+  /* heatmap */
+  .heatmap{display:grid;grid-template-columns:64px repeat(12,1fr);gap:3px;font-size:10.5px;}
+  .hm-corner{}
+  .hm-month{color:var(--ink-faint);text-align:center;padding:4px 0;font-weight:500;}
+  .hm-region{color:var(--ink-dim);font-weight:600;display:flex;align-items:center;padding:0 4px;}
+  .hm-cell{
+    aspect-ratio:1.5;border-radius:3px;display:flex;align-items:center;justify-content:center;
+    color:#fff;font-size:9.5px;font-weight:600;
+  }
+
+  /* rank list */
+  .rank-head{display:grid;grid-template-columns:26px 1.4fr 1fr 90px 66px;gap:14px;font-size:11px;color:var(--ink-faint);padding-bottom:8px;border-bottom:1px solid var(--tile-border);}
+  .rank-head span:nth-child(4),.rank-head span:nth-child(5){text-align:right;}
+  .rank-row{display:grid;grid-template-columns:26px 1.4fr 1fr 90px 66px;align-items:center;gap:14px;padding:10px 0;border-bottom:1px solid #F2F1EF;}
+  .rank-row:last-child{border-bottom:none;}
+  .rank-num{font-family:'Fraunces',serif;font-size:14px;color:var(--ink-faint);}
+  .rank-name{font-size:13px;font-weight:600;}
+  .rank-cat{font-size:11px;color:var(--ink-faint);}
+  .rank-bar-track{height:6px;background:#EEECEA;border-radius:4px;overflow:hidden;}
+  .rank-bar-fill{height:100%;border-radius:4px;}
+  .rank-num-val{font-size:12px;text-align:right;font-weight:600;}
+  .rank-yoy{font-size:11.5px;text-align:right;font-weight:600;}
+  .rank-yoy.growth-pos{color:var(--teal);}
+  .rank-yoy.growth-neg{color:var(--coral);}
+
+  footer{padding:6px 26px 30px;font-size:11.5px;color:var(--ink-faint);display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;}
+
+  @media (max-width:980px){
+    .report-body{flex-direction:column;}
+    .filter-pane{width:100%;position:static;}
+    .kpi-strip{grid-template-columns:repeat(2,1fr);}
+    .col-8,.col-4,.col-6{grid-column:span 12;}
+    .heatmap{grid-template-columns:50px repeat(12,1fr);}
+  }
+</style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="crumb"><span>My workspace</span><span class="sep">/</span><b>Sales Intelligence Report</b></div>
+    <div class="live"><span class="live-dot"></span><span id="refreshLabel">Live · filters apply instantly</span></div>
+  </div>
+
+  <div class="titlebar">
+    <div>
+      <h1>Meridian Goods — Sales Performance</h1>
+      <p>Two-year view across four regions and five product lines, FY24–FY25.</p>
+    </div>
+    <button class="reset-btn" id="resetBtn">Reset all filters</button>
+  </div>
+
+  <div class="report-body">
+
+    <aside class="filter-pane">
+      <h3>Filters</h3>
+      <div class="filter-group">
+        <span class="filter-group-label">Fiscal year</span>
+        <label class="f-option"><input type="radio" name="yr" value="all" checked> All years</label>
+        <label class="f-option"><input type="radio" name="yr" value="2024"> FY24</label>
+        <label class="f-option"><input type="radio" name="yr" value="2025"> FY25</label>
+      </div>
+      <div class="filter-group">
+        <span class="filter-group-label">Region</span>
+        <div id="regionFilters"></div>
+      </div>
+      <div class="filter-group">
+        <span class="filter-group-label">Category</span>
+        <div id="categoryFilters"></div>
+      </div>
+      <button class="filter-reset" id="filterResetBtn">Clear selections</button>
+    </aside>
+
+    <main class="canvas">
+
+      <section class="kpi-strip" id="kpiStrip"></section>
+
+      <section class="tile-grid">
+
+        <div class="tile col-8">
+          <div class="tile-head"><p class="tile-title">Revenue trend</p><span class="tile-dots">⋯</span></div>
+          <p class="tile-note">Monthly revenue across the current filter selection.</p>
+          <div class="chart-box"><canvas id="trendChart"></canvas></div>
+        </div>
+
+        <div class="tile col-4">
+          <div class="tile-head"><p class="tile-title">Revenue mix</p><span class="tile-dots">⋯</span></div>
+          <p class="tile-note">Share of revenue by category.</p>
+          <div class="chart-box short"><canvas id="donutChart"></canvas></div>
+          <div class="legend-row" id="catLegend"></div>
+        </div>
+
+        <div class="tile col-6">
+          <div class="tile-head"><p class="tile-title">Revenue by region</p><span class="tile-dots">⋯</span></div>
+          <p class="tile-note">Ranked, current filters applied.</p>
+          <div class="chart-box short"><canvas id="regionChart"></canvas></div>
+        </div>
+
+        <div class="tile col-6">
+          <div class="tile-head"><p class="tile-title">Target achievement</p><span class="tile-dots">⋯</span></div>
+          <p class="tile-note">Revenue against a modeled target for the current scope.</p>
+          <div class="chart-box gauge"><canvas id="gaugeChart"></canvas></div>
+          <div class="gauge-label"><span class="gauge-pct" id="gaugePct">0%</span><br><span class="gauge-sub" id="gaugeSub">of target</span></div>
+        </div>
+
+        <div class="tile col-12">
+          <div class="tile-head"><p class="tile-title">Revenue heatmap</p><span class="tile-dots">⋯</span></div>
+          <p class="tile-note">Region × month intensity, current filters applied.</p>
+          <div class="heatmap" id="heatmap"></div>
+        </div>
+
+        <div class="tile col-12">
+          <div class="tile-head"><p class="tile-title">Top products</p><span class="tile-dots">⋯</span></div>
+          <p class="tile-note">Ranked by revenue within the current filters.</p>
+          <div class="rank-head"><span>#</span><span>Product</span><span>Share</span><span>Revenue</span><span>YoY</span></div>
+          <div id="productBody"></div>
+        </div>
+
+      </section>
+    </main>
+  </div>
+
+  <footer>
+    <span>Sample dataset, generated for demonstration · not real transactions</span>
+    <span id="footNote">Every tile, filter and KPI above is live and calculated in the browser.</span>
+  </footer>
+
+<script>
+/* ---------------------------------------------------------
+   1. DATA MODEL
+--------------------------------------------------------- */
+function mulberry32(seed){
+  return function(){
+    seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const rand = mulberry32(20260908);
+
+const REGIONS = ['North','South','East','West'];
+const CATEGORIES = ['Electronics','Apparel','Home & Garden','Sports','Beauty'];
+const PRODUCTS = {
+  'Electronics':['Wireless Earbuds Pro','4K Action Camera','Smart Home Hub','Bluetooth Speaker','Fitness Tracker'],
+  'Apparel':['Classic Denim Jacket','Merino Wool Sweater','Running Shorts','Everyday Tote','Rain Shell Jacket'],
+  'Home & Garden':['Ceramic Planter Set','LED Desk Lamp','Memory Foam Pillow','Cast Iron Skillet','Outdoor String Lights'],
+  'Sports':['Yoga Mat Pro','Adjustable Dumbbell Set','Trail Running Shoes','Insulated Water Bottle','Resistance Band Kit'],
+  'Beauty':['Vitamin C Serum','Argan Oil Shampoo','Matte Lipstick Set','Facial Cleansing Brush','SPF 50 Sunscreen']
+};
+const CAT_BASE = {'Electronics':42000,'Apparel':31000,'Home & Garden':24000,'Sports':19000,'Beauty':16000};
+const CAT_MARGIN = {'Electronics':0.32,'Apparel':0.42,'Home & Garden':0.38,'Sports':0.40,'Beauty':0.48};
+const CAT_UNIT_PRICE = {'Electronics':85,'Apparel':45,'Home & Garden':38,'Sports':55,'Beauty':22};
+const CAT_YEAR_FACTOR = {'Electronics':1.15,'Apparel':1.05,'Home & Garden':1.10,'Sports':1.22,'Beauty':1.18};
+const REGION_WEIGHT = {
+  North:{2024:1.30,2025:1.28}, South:{2024:0.90,2025:0.94},
+  East :{2024:1.00,2025:1.02}, West :{2024:0.90,2025:1.15}
+};
+const SEASONALITY = [0.85,0.80,0.95,0.90,0.95,1.00,0.95,1.00,1.05,1.10,1.55,1.90];
+const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+const DATA = [];
+[2024,2025].forEach(year=>{
+  for(let m=0;m<12;m++){
+    REGIONS.forEach(region=>{
+      CATEGORIES.forEach(category=>{
+        const yearFactor = year===2024 ? 1.0 : CAT_YEAR_FACTOR[category];
+        const base = CAT_BASE[category] * REGION_WEIGHT[region][year] * SEASONALITY[m] * yearFactor;
+        const noise = 0.85 + rand()*0.30;
+        const revenue = Math.round(base * noise);
+        const unitPrice = CAT_UNIT_PRICE[category] * (0.9 + rand()*0.2);
+        const units = Math.max(1, Math.round(revenue / unitPrice));
+        const profit = Math.round(revenue * CAT_MARGIN[category] * (0.92 + rand()*0.16));
+        const prodList = PRODUCTS[category];
+        const product = prodList[(m + REGIONS.indexOf(region)) % prodList.length];
+        DATA.push({year, month:m, region, category, product, revenue, units, profit});
+      });
+    });
+  }
+});
+const TOTAL_ALL_REVENUE = DATA.reduce((a,d)=>a+d.revenue,0);
+
+/* ---------------------------------------------------------
+   2. STATE
+--------------------------------------------------------- */
+const state = { year:'all', regions:new Set(REGIONS), categories:new Set(CATEGORIES) };
+
+const CAT_COLOR = {
+  'Electronics':'#2568C8','Apparel':'#02A398','Home & Garden':'#8E7CC3',
+  'Sports':'#EF6C55','Beauty':'#E8A33D'
+};
+const REGION_COLOR = {'North':'#2568C8','South':'#02A398','East':'#8E7CC3','West':'#E8A33D'};
+
+const fmtMoney = v => '$' + Math.round(v).toLocaleString('en-US');
+const fmtMoneyK = v => '$' + (v/1000).toFixed(0) + 'K';
+const fmtCompact = v => v>=1000000 ? '$'+(v/1000000).toFixed(2)+'M' : fmtMoneyK(v);
+
+/* ---------------------------------------------------------
+   3. FILTER / AGGREGATION HELPERS
+--------------------------------------------------------- */
+function fullyFiltered(){
+  return DATA.filter(d =>
+    (state.year==='all' || d.year==state.year) &&
+    state.regions.has(d.region) && state.categories.has(d.category)
+  );
+}
+function sum(arr, key){ return arr.reduce((a,d)=>a+d[key],0); }
+
+/* ---------------------------------------------------------
+   4. CHART PLUGINS
+--------------------------------------------------------- */
+const peakLabelPlugin = {
+  id:'peakLabel',
+  afterDatasetsDraw(chart){
+    const {ctx} = chart;
+    const meta = chart.getDatasetMeta(0);
+    const data = chart.data.datasets[0].data;
+    if(!data.length) return;
+    let maxIdx = 0;
+    data.forEach((v,i)=>{ if(v>data[maxIdx]) maxIdx=i; });
+    const pt = meta.data[maxIdx];
+    if(!pt) return;
+    ctx.save();
+    ctx.fillStyle = '#2568C8';
+    ctx.beginPath(); ctx.arc(pt.x, pt.y, 3.5, 0, Math.PI*2); ctx.fill();
+    ctx.font = '600 11px Inter, sans-serif';
+    ctx.fillStyle = '#201F1E';
+    const label = 'Peak · ' + fmtMoneyK(data[maxIdx]);
+    const tw = ctx.measureText(label).width;
+    let lx = pt.x - tw/2; if(lx<4) lx=4; if(lx+tw>chart.width-4) lx = chart.width-4-tw;
+    ctx.fillText(label, lx, pt.y - 14);
+    ctx.restore();
+  }
+};
+
+/* ---------------------------------------------------------
+   5. CHARTS
+--------------------------------------------------------- */
+Chart.defaults.font.family = "'Inter', sans-serif";
+Chart.defaults.color = '#8A8886';
+
+let trendChart, donutChart, regionChart, gaugeChart;
+
+function trendSeries(){
+  const filtered = fullyFiltered();
+  let labels, values;
+  if(state.year==='all'){
+    labels = []; values = [];
+    [2024,2025].forEach(y=>{
+      for(let m=0;m<12;m++){
+        labels.push(MONTH_NAMES[m] + " '" + String(y).slice(2));
+        values.push(sum(filtered.filter(d=>d.year===y && d.month===m),'revenue'));
+      }
+    });
+  } else {
+    labels = MONTH_NAMES.slice();
+    values = MONTH_NAMES.map((_,m)=> sum(filtered.filter(d=>d.month===m),'revenue'));
+  }
+  return {labels, values};
+}
+
+function buildTrendChart(){
+  const {labels, values} = trendSeries();
+  const ctx = document.getElementById('trendChart').getContext('2d');
+  const gradient = ctx.createLinearGradient(0,0,0,230);
+  gradient.addColorStop(0,'rgba(37,104,200,0.22)');
+  gradient.addColorStop(1,'rgba(37,104,200,0.01)');
+  if(trendChart) trendChart.destroy();
+  trendChart = new Chart(ctx, {
+    type:'line',
+    data:{ labels, datasets:[{
+      data: values, borderColor:'#2568C8', backgroundColor:gradient,
+      borderWidth:2, pointRadius:0, pointHoverRadius:4, pointHoverBackgroundColor:'#2568C8',
+      fill:true, tension:0.35
+    }]},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{ backgroundColor:'#fff', titleColor:'#201F1E', bodyColor:'#201F1E', borderColor:'#E3E2E0', borderWidth:1,
+          padding:10, titleFont:{size:12}, bodyFont:{size:12.5}, callbacks:{ label: c => fmtMoney(c.parsed.y) } }
+      },
+      scales:{
+        x:{ grid:{display:false}, ticks:{ maxRotation:0, autoSkip:true, maxTicksLimit:12, font:{size:10.5} } },
+        y:{ grid:{color:'#EFEEEC'}, ticks:{ callback:v=>fmtMoneyK(v), font:{size:10.5} } }
+      }
+    },
+    plugins:[peakLabelPlugin]
+  });
+}
+
+function buildDonutChart(){
+  const filtered = fullyFiltered();
+  const values = CATEGORIES.map(c => sum(filtered.filter(d=>d.category===c),'revenue'));
+  const colors = CATEGORIES.map(c => CAT_COLOR[c]);
+  const ctx = document.getElementById('donutChart').getContext('2d');
+  if(donutChart) donutChart.destroy();
+  donutChart = new Chart(ctx, {
+    type:'doughnut',
+    data:{ labels:CATEGORIES, datasets:[{ data:values, backgroundColor:colors, borderColor:'#fff', borderWidth:2 }]},
+    options:{
+      responsive:true, maintainAspectRatio:false, cutout:'66%',
+      plugins:{ legend:{display:false},
+        tooltip:{ backgroundColor:'#fff', titleColor:'#201F1E', bodyColor:'#201F1E', borderColor:'#E3E2E0', borderWidth:1, padding:10,
+          callbacks:{ label: c => c.label + ': ' + fmtMoney(c.parsed) } } }
+    }
+  });
+}
+
+function buildRegionChart(){
+  const filtered = fullyFiltered();
+  const rows = REGIONS.map(r=>({r, v: sum(filtered.filter(d=>d.region===r),'revenue')})).sort((a,b)=>b.v-a.v);
+  const ctx = document.getElementById('regionChart').getContext('2d');
+  if(regionChart) regionChart.destroy();
+  regionChart = new Chart(ctx, {
+    type:'bar',
+    data:{ labels: rows.map(r=>r.r), datasets:[{ data: rows.map(r=>r.v), backgroundColor: rows.map(r=>REGION_COLOR[r.r]), borderRadius:4, maxBarThickness:26 }]},
+    options:{
+      indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false},
+        tooltip:{ backgroundColor:'#fff', titleColor:'#201F1E', bodyColor:'#201F1E', borderColor:'#E3E2E0', borderWidth:1, padding:10,
+          callbacks:{ label: c => fmtMoney(c.parsed.x) } } },
+      scales:{
+        x:{ grid:{color:'#EFEEEC'}, ticks:{ callback:v=>fmtMoneyK(v), font:{size:10.5} } },
+        y:{ grid:{display:false}, ticks:{ font:{size:12,weight:600} } }
+      }
+    }
+  });
+}
+
+const gaugeCenterPlugin = {
+  id:'gaugeCenter',
+  afterDraw(){}
+};
+
+function buildGauge(){
+  const filtered = fullyFiltered();
+  const revenue = sum(filtered,'revenue');
+  const yearFrac = state.year==='all' ? 1 : 0.5;
+  const regionFrac = state.regions.size/REGIONS.length;
+  const catFrac = state.categories.size/CATEGORIES.length;
+  const target = TOTAL_ALL_REVENUE * yearFrac * regionFrac * catFrac * 0.475;
+  const pct = target>0 ? (revenue/target*100) : 0;
+  const clamped = Math.min(100, pct);
+
+  const ctx = document.getElementById('gaugeChart').getContext('2d');
+  if(gaugeChart) gaugeChart.destroy();
+  gaugeChart = new Chart(ctx, {
+    type:'doughnut',
+    data:{ datasets:[{
+      data:[clamped, 100-clamped],
+      backgroundColor:[ pct>=100 ? '#02A398' : '#2568C8', '#EFEEEC'],
+      borderWidth:0
+    }]},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      circumference:180, rotation:270, cutout:'75%',
+      plugins:{ legend:{display:false}, tooltip:{enabled:false} }
+    }
+  });
+  document.getElementById('gaugePct').textContent = pct.toFixed(0) + '%';
+  document.getElementById('gaugeSub').textContent = 'of ' + fmtCompact(target) + ' target';
+}
+
+/* ---------------------------------------------------------
+   6. HEATMAP
+--------------------------------------------------------- */
+function renderHeatmap(){
+  const filtered = fullyFiltered();
+  const grid = {};
+  REGIONS.forEach(r=>{ grid[r] = MONTH_NAMES.map((_,m)=> sum(filtered.filter(d=>d.region===r && d.month===m),'revenue')); });
+  const max = Math.max(...REGIONS.flatMap(r=>grid[r]), 1);
+
+  let html = '<div class="hm-corner"></div>';
+  MONTH_NAMES.forEach(m=> html += `<div class="hm-month">${m}</div>`);
+  REGIONS.forEach(r=>{
+    html += `<div class="hm-region">${r}</div>`;
+    grid[r].forEach(v=>{
+      const t = v/max;
+      const bg = `rgba(37,104,200,${(0.12 + t*0.75).toFixed(2)})`;
+      const txt = t>0.55 ? '#fff' : '#201F1E';
+      html += `<div class="hm-cell" style="background:${bg};color:${txt}">${v>0?(v/1000).toFixed(0):''}</div>`;
+    });
+  });
+  document.getElementById('heatmap').innerHTML = html;
+}
+
+/* ---------------------------------------------------------
+   7. KPI STRIP
+--------------------------------------------------------- */
+function renderKPIs(){
+  const filtered = fullyFiltered();
+  const revenue = sum(filtered,'revenue');
+  const profit = sum(filtered,'profit');
+  const units = sum(filtered,'units');
+  const orders = units / 2.3;
+  const aov = orders>0 ? revenue/orders : 0;
+  const marginPct = revenue>0 ? (profit/revenue*100) : 0;
+
+  const scope = DATA.filter(d => state.regions.has(d.region) && state.categories.has(d.category));
+  const rev24 = sum(scope.filter(d=>d.year===2024),'revenue');
+  const rev25 = sum(scope.filter(d=>d.year===2025),'revenue');
+  const yoy = rev24>0 ? ((rev25-rev24)/rev24*100) : 0;
+
+  const cards = [
+    {label:'Total revenue', value:fmtCompact(revenue), delta:`${filtered.length} line items`, dir:'flat', c:'var(--blue)'},
+    {label:'Gross profit', value:fmtCompact(profit), delta:`${marginPct.toFixed(1)}% margin`, dir:'flat', c:'var(--teal)'},
+    {label:'Units sold', value:units.toLocaleString('en-US'), delta:`~${orders.toFixed(0).toLocaleString('en-US')} orders`, dir:'flat', c:'var(--violet)'},
+    {label:'Avg order value', value:'$'+aov.toFixed(2), delta:'per transaction', dir:'flat', c:'var(--amber)'},
+    {label:'Year-over-year', value:(yoy>=0?'+':'')+yoy.toFixed(1)+'%', delta:'FY25 vs FY24', dir: yoy>=0?'up':'down', c: yoy>=0?'var(--teal)':'var(--coral)'}
+  ];
+  document.getElementById('kpiStrip').innerHTML = cards.map(c=>`
+    <div class="kpi-tile" style="--kpi-c:${c.c}">
+      <p class="kpi-label">${c.label}</p>
+      <p class="kpi-value">${c.value}</p>
+      <p class="kpi-delta ${c.dir}">${c.delta}</p>
+    </div>`).join('');
+}
+
+/* ---------------------------------------------------------
+   8. LEGEND + PRODUCT RANK
+--------------------------------------------------------- */
+function renderLegend(){
+  document.getElementById('catLegend').innerHTML = CATEGORIES.map(c=>`
+    <div class="legend-chip"><span class="dot-sw" style="background:${CAT_COLOR[c]}"></span>${c}</div>`).join('');
+}
+
+function renderProductRank(){
+  const filtered = fullyFiltered();
+  const map = {};
+  filtered.forEach(d=>{
+    const key = d.product;
+    if(!map[key]) map[key] = {product:d.product, category:d.category, revenue:0, units:0, rev24:0, rev25:0};
+    map[key].revenue += d.revenue; map[key].units += d.units;
+    if(d.year===2024) map[key].rev24 += d.revenue; else map[key].rev25 += d.revenue;
+  });
+  const rows = Object.values(map).sort((a,b)=>b.revenue-a.revenue).slice(0,8);
+  const maxRev = rows.length ? rows[0].revenue : 1;
+  const totalRev = sum(filtered,'revenue') || 1;
+
+  document.getElementById('productBody').innerHTML = rows.map((r,i)=>{
+    const yoy = r.rev24>0 ? ((r.rev25-r.rev24)/r.rev24*100) : (r.rev25>0?100:0);
+    const yoyClass = yoy>=0 ? 'growth-pos' : 'growth-neg';
+    const share = (r.revenue/totalRev*100).toFixed(1);
+    const barPct = (r.revenue/maxRev*100).toFixed(1);
+    return `<div class="rank-row">
+      <span class="rank-num">${i+1}</span>
+      <div><div class="rank-name">${r.product}</div><div class="rank-cat">${r.category}</div></div>
+      <span class="rank-bar-track"><span class="rank-bar-fill" style="width:${barPct}%;background:${CAT_COLOR[r.category]}"></span></span>
+      <span class="rank-num-val">${fmtCompact(r.revenue)}</span>
+      <span class="rank-yoy ${yoyClass}">${(yoy>=0?'+':'')+yoy.toFixed(1)}%</span>
+    </div>`;
+  }).join('');
+}
+
+/* ---------------------------------------------------------
+   9. FILTER PANE BUILD
+--------------------------------------------------------- */
+function buildFilterPane(){
+  document.getElementById('regionFilters').innerHTML = REGIONS.map(r=>`
+    <label class="f-option"><input type="checkbox" data-region="${r}" checked><span class="f-swatch" style="background:${REGION_COLOR[r]}"></span>${r}</label>`).join('');
+  document.getElementById('categoryFilters').innerHTML = CATEGORIES.map(c=>`
+    <label class="f-option"><input type="checkbox" data-category="${c}" checked><span class="f-swatch" style="background:${CAT_COLOR[c]}"></span>${c}</label>`).join('');
+
+  document.querySelectorAll('input[data-region]').forEach(cb=>{
+    cb.addEventListener('change', ()=>{
+      const checked = [...document.querySelectorAll('input[data-region]:checked')];
+      if(checked.length===0){ cb.checked = true; return; }
+      state.regions = new Set(checked.map(c=>c.dataset.region));
+      renderAll();
+    });
+  });
+  document.querySelectorAll('input[data-category]').forEach(cb=>{
+    cb.addEventListener('change', ()=>{
+      const checked = [...document.querySelectorAll('input[data-category]:checked')];
+      if(checked.length===0){ cb.checked = true; return; }
+      state.categories = new Set(checked.map(c=>c.dataset.category));
+      renderAll();
+    });
+  });
+  document.querySelectorAll('input[name="yr"]').forEach(rb=>{
+    rb.addEventListener('change', ()=>{ state.year = rb.value; renderAll(); });
+  });
+}
+
+/* ---------------------------------------------------------
+   10. RENDER LOOP
+--------------------------------------------------------- */
+function renderAll(){
+  renderKPIs();
+  buildTrendChart();
+  buildDonutChart();
+  buildRegionChart();
+  buildGauge();
+  renderHeatmap();
+  renderLegend();
+  renderProductRank();
+}
+
+document.getElementById('resetBtn').addEventListener('click', resetFilters);
+document.getElementById('filterResetBtn').addEventListener('click', resetFilters);
+function resetFilters(){
+  state.year='all'; state.regions=new Set(REGIONS); state.categories=new Set(CATEGORIES);
+  document.querySelector('input[name="yr"][value="all"]').checked = true;
+  document.querySelectorAll('input[data-region]').forEach(cb=>cb.checked=true);
+  document.querySelectorAll('input[data-category]').forEach(cb=>cb.checked=true);
+  renderAll();
+}
+
+document.getElementById('refreshLabel').textContent = 'Live · refreshed ' + new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+
+buildFilterPane();
+renderAll();
+</script>
+</body>
+</html>
