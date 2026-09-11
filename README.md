@@ -2,7 +2,7 @@
 
 An interactive sales performance dashboard built as a BI-style report canvas: KPI tiles, trend and category charts, a regional heatmap, and a target-achievement gauge — all filter-driven and calculated live in the browser.
 
-**Live demo:** https://varunbhadana.github.io/meridian-sales-dashboard/
+**Live demo:** https://varunbhadana.github.io/Meridian-Revenue-Intelligence-Dashboard/
 
 ![Status](https://img.shields.io/badge/status-live-brightgreen) ![Type](https://img.shields.io/badge/type-interactive%20dashboard-blue)
 
